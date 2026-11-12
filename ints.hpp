@@ -21,7 +21,7 @@ public:
   int getSafe(size_t id) const;
 
   Ints append(int i) const;
-  Ints append(Ints b) const;
+  Ints append(const Ints & b) const;
 
   static Ints unitializatedInts(size_t size);
 

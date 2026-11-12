@@ -13,7 +13,7 @@ Ints::Ints():
 Ints::Ints(size_t size, int value):
   capacity_(size),
   size_(size),
-  data_(new int [size])
+  data_(size ? new int [size] : nullptr)
 {
   for (size_t i = 0; i < size_; ++i)
   {
@@ -26,7 +26,7 @@ Ints Ints::unitializatedInts(size_t size)
   Ints temp;
   temp.size_ = 0;
   temp.capacity_ = size;
-  temp.data_ = new int [size];
+  temp.data_ = size ? new int [size] : nullptr;
 
   return temp;
 }
@@ -34,7 +34,7 @@ Ints Ints::unitializatedInts(size_t size)
 Ints::Ints(const Ints & rhs):
   capacity_(rhs.capacity_),
   size_(rhs.size_),
-  data_(new int [capacity_])
+  data_(capacity_ ? new int [capacity_] : nullptr)
 {
   for (size_t i = 0; i < size_; ++i)
   {
@@ -101,7 +101,7 @@ Ints Ints::operator+(const Ints & rhs) const
     if ((b > 0 && a > std::numeric_limits< int >::max() - b)
         || (b < 0 && a < std::numeric_limits< int >::min() - b))
     {
-      throw std::invalid_argument("overflow");
+      throw std::overflow_error("Overflow");
     }
 
     result.set(i, a + b);
@@ -134,7 +134,7 @@ void Ints::setSafe(size_t id, int i)
 {
   if (id >= size_)
   {
-    throw std::logic_error("Invalid value");
+    throw std::out_of_range("Invalid index");
   }
 
   set(id, i);
@@ -144,7 +144,7 @@ int Ints::getSafe(size_t id) const
 {
   if (id >= size_)
   {
-    throw std::logic_error("Invalid value");
+    throw std::out_of_range("Invalid index");
   }
 
   return get(id);
@@ -157,7 +157,7 @@ void Ints::resize()
   {
     if (capacity_ > std::numeric_limits< size_t >::max() / 2)
     {
-      throw std::logic_error("Overflow");
+      throw std::overflow_error("Overflow");
     }
 
     newCapacity = capacity_ * 2;
@@ -189,11 +189,11 @@ Ints Ints::append(int i) const
   return result;
 }
 
-Ints Ints::append(Ints b) const
+Ints Ints::append(const Ints & b) const
 {
   if (b.size_ > std::numeric_limits< size_t >::max() - size_)
   {
-    throw std::logic_error("Overflow");
+    throw std::overflow_error("Overflow");
   }
 
   Ints result = unitializatedInts(size_ + b.size_);

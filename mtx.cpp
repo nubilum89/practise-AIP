@@ -2,6 +2,63 @@
 #include <limits>
 #include <stdexcept>
 
+namespace
+{
+  int safeAdd(int a, int b)
+  {
+    if ((b > 0 && a > std::numeric_limits< int >::max() - b)
+        || (b < 0 && a < std::numeric_limits< int >::min() - b))
+    {
+      throw std::overflow_error("Overflow");
+    }
+
+    return a + b;
+  }
+
+  int safeMul(int a, int b)
+  {
+    if (a == 0 || b == 0)
+    {
+      return 0;
+    }
+
+    if (a == -1 && b == std::numeric_limits< int >::min())
+    {
+      throw std::overflow_error("Overflow");
+    }
+
+    if (b == -1 && a == std::numeric_limits< int >::min())
+    {
+      throw std::overflow_error("Overflow");
+    }
+
+    if (a > 0)
+    {
+      if (b > 0 && a > std::numeric_limits< int >::max() / b)
+      {
+        throw std::overflow_error("Overflow");
+      }
+      if (b < 0 && b < std::numeric_limits< int >::min() / a)
+      {
+        throw std::overflow_error("Overflow");
+      }
+    }
+    else
+    {
+      if (b > 0 && a < std::numeric_limits< int >::min() / b)
+      {
+        throw std::overflow_error("Overflow");
+      }
+      if (b < 0 && a < std::numeric_limits< int >::max() / b)
+      {
+        throw std::overflow_error("Overflow");
+      }
+    }
+
+    return a * b;
+  }
+}
+
 Mtx::Mtx():
   m(0),
   n(0),
@@ -15,7 +72,7 @@ Mtx::Mtx(size_t m, size_t n):
 {
   if (n != 0 && m > std::numeric_limits< size_t >::max() / n)
   {
-    throw std::logic_error("Overflow");
+    throw std::overflow_error("Overflow");
   }
 
   data = Ints(m * n, 0);
@@ -49,24 +106,18 @@ Mtx Mtx::sum(const Mtx & oth) const
   }
 
   Mtx res(m, n);
-  for (size_t i = 0; i < data.getSize(); ++i)
-  {
-    int a = data.get(i);
-    int b = oth.data.get(i);
-    if ((b > 0 && a > std::numeric_limits< int >::max() - b)
-        || (b < 0 && a < std::numeric_limits< int >::min() - b))
-    {
-      throw std::logic_error("Overflow");
-    }
-
-    res.data.set(i, a + b);
-  }
+  res.data = data + oth.data;
 
   return res;
 }
 
 Ints Mtx::getCol(size_t id) const
 {
+  if (id >= n)
+  {
+    throw std::out_of_range("Invalid column index");
+  }
+
   Ints res = Ints::unitializatedInts(m);
   for (size_t i = 0; i < m; ++i)
   {
@@ -78,6 +129,11 @@ Ints Mtx::getCol(size_t id) const
 
 Ints Mtx::getRow(size_t id) const
 {
+  if (id >= m)
+  {
+    throw std::out_of_range("Invalid row index");
+  }
+
   Ints res = Ints::unitializatedInts(n);
   for (size_t i = 0; i < n; ++i)
   {
@@ -89,26 +145,22 @@ Ints Mtx::getRow(size_t id) const
 
 Mtx Mtx::mul(const Mtx & oth) const
 {
-  //mn np = mp
-  //m1n1 m2n2 = m1n2
   if (n != oth.m)
   {
     throw std::invalid_argument("Invalid matrices size");
   }
 
   Mtx res(m, oth.n);
-  int sm = 0;
   for (size_t i = 0; i < m; ++i)
   {
+    Ints row = getRow(i);
     for (size_t j = 0; j < oth.n; ++j)
     {
-      Ints row = getRow(i);
       Ints col = oth.getCol(j);
-
-      sm = 0;
-      for (size_t z = 0; z < n; z++)
+      int sm = 0;
+      for (size_t z = 0; z < n; ++z)
       {
-        sm += row.get(z) * col.get(z);
+        sm = safeAdd(sm, safeMul(row.get(z), col.get(z)));
       }
 
       res.data.set(i * oth.n + j, sm);
@@ -134,6 +186,11 @@ Mtx Mtx::transpose() const
 
 Mtx Mtx::getMinor(size_t row, size_t col) const
 {
+  if (m == 0 || n == 0 || row >= m || col >= n)
+  {
+    throw std::out_of_range("Invalid index");
+  }
+
   Mtx res(m - 1, n - 1);
   size_t id = 0;
   for (size_t i = 0; i < m; ++i)
@@ -179,7 +236,8 @@ int Mtx::det() const
   int sign = 1;
   for (size_t j = 0; j < n; ++j)
   {
-    res += sign * data.get(j) * getMinor(0, j).det();
+    int term = safeMul(sign * data.get(j), getMinor(0, j).det());
+    res = safeAdd(res, term);
     sign = -sign;
   }
 
@@ -190,7 +248,7 @@ Mtx Mtx::add_row(int init) const
 {
   if (m == std::numeric_limits< size_t >::max())
   {
-    throw std::logic_error("Overflow");
+    throw std::overflow_error("Overflow");
   }
 
   Mtx res;
